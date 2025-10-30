@@ -13,22 +13,29 @@ This project implements a complete end-to-end machine learning pipeline for cust
 - **Text Summarization**: Transformer-based (T5) and extractive summarization
 - **Predictive Insights**: Recurring issue identification and satisfaction forecasting
 - **Web Dashboard**: Interactive Streamlit application for real-time analysis
+- **AI Chatbot**: Intelligent assistant for feedback queries and recommendations (Bonus Feature)
 
 ## Project Structure
 
 ```
-customer-feedback-analysis/
-├── data_preprocessing.ipynb          # Part 1: Data handling
-├── sentiment_model.ipynb             # Part 2: Sentiment classification
-├── text_summarization.ipynb          # Part 3: Text summarization
-├── predictive_insights.ipynb         # Part 4: Predictive analytics
-├── app.py                            # Part 5: Streamlit web app
-├── requirements.txt                  # Python dependencies
-├── Customer_Feedback.csv             # Original dataset
-├── cleaned_customer_feedback.csv     # Processed dataset
-├── run_app.bat                       # Windows run script
-├── RUN_APP.md                        # App instructions
-└── README.md                         # This file
+Flikt/
+├── data_preprocessing.ipynb              # Part 1: Data handling
+├── sentiment_model.ipynb                 # Part 2: Sentiment classification
+├── text_summarization.ipynb              # Part 3: Text summarization
+├── predictive_insights.ipynb             # Part 4: Predictive analytics
+├── app.py                                # Part 5: Streamlit web app with chatbot
+├── requirements.txt                      # Python dependencies
+├── Customer_Feedback.csv                 # Original dataset
+├── cleaned_customer_feedback.csv         # Processed dataset
+├── summarized_feedback.csv               # Summarized reviews
+├── sentiment_model.pkl                   # Trained model metadata
+├── summarization_results.json            # Aggregated summaries
+├── sentiment_model/                      # Saved DistilBERT model
+├── results/                              # Training checkpoints
+├── AI_insights_report.pdf                # Insights PDF report
+├── recurring_issues_chart.png            # Issue visualization
+├── satisfaction_forecast_chart.png       # Forecast chart
+└── README.md                             # This file
 ```
 
 ## Installation
@@ -106,10 +113,6 @@ jupyter notebook predictive_insights.ipynb
 ```bash
 streamlit run app.py
 ```
-Or use the provided script:
-```bash
-run_app.bat
-```
 
 Access at: http://localhost:8501
 
@@ -135,6 +138,28 @@ Access at: http://localhost:8501
 - Category performance analysis
 - Time-based trend visualization
 - Recurring issue identification
+
+### AI Chatbot (Bonus)
+- Dedicated chatbot tab in the web application
+- Intelligent rule-based analysis system
+- Instant responses with no API calls or downloads
+- Answers questions about feedback data
+- Provides improvement recommendations
+- Context-aware responses based on your loaded data
+- 100% local processing for complete privacy
+
+**How to Use:**
+1. Open the "AI Chatbot" tab in the web application
+2. Type your question in the input field
+3. Click "Send" button
+4. Get instant, intelligent responses based on your data
+
+**Sample Questions:**
+- "What is the overall sentiment?"
+- "What are the main issues?"
+- "How can we improve satisfaction?"
+- "What is the average rating?"
+- "help" - to see all capabilities
 
 ## Dataset
 
