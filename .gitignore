@@ -1,5 +1,13 @@
 .vscode
 .env
-venv
-results
-sentiment_model
+venv/
+results/
+sentiment_model/
+logs/
+__pycache__/
+*.pyc
+*.pyo
+*.pkl
+*.png
+*.pdf
+.ipynb_checkpoints/
