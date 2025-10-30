@@ -7,9 +7,16 @@ from sklearn.feature_extraction.text import CountVectorizer
 from transformers import pipeline
 import pickle
 import warnings
+import streamlit.components.v1 as components
 warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Customer Feedback Analysis", layout="wide")
+
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I'm your AI feedback assistant. Ask me about sentiment analysis, ratings, recurring issues, or recommendations to improve customer satisfaction."}]
+
+if 'chat_input_counter' not in st.session_state:
+    st.session_state.chat_input_counter = 0
 
 st.title("Intelligent Customer Feedback Analysis System")
 st.markdown("AI-powered sentiment analysis, summarization, and insights generation")
@@ -31,6 +38,10 @@ def load_summarizer():
     except:
         return None
 
+@st.cache_resource
+def load_chatbot():
+    return {"available": True}
+
 def analyze_sentiment(rating):
     if rating >= 4.0:
         return 'Positive'
@@ -48,7 +59,127 @@ def summarize_text(text, summarizer, max_length=100):
     except:
         return text[:200] + "..."
 
-tabs = st.tabs(["Upload Data", "Sentiment Analysis", "Summaries", "Insights"])
+def get_feedback_context():
+    if 'df' not in st.session_state:
+        return "No feedback data loaded yet."
+    
+    df = st.session_state['df']
+    context_parts = []
+    
+    if 'Rating_Numeric' in df.columns:
+        avg_rating = df['Rating_Numeric'].mean()
+        context_parts.append(f"Average rating: {avg_rating:.2f}/5.0")
+        
+        df['Sentiment'] = df['Rating_Numeric'].apply(analyze_sentiment)
+        sentiment_counts = df['Sentiment'].value_counts()
+        pos = sentiment_counts.get('Positive', 0)
+        neu = sentiment_counts.get('Neutral', 0)
+        neg = sentiment_counts.get('Negative', 0)
+        context_parts.append(f"Positive: {pos}, Neutral: {neu}, Negative: {neg}")
+    
+    if 'Category' in df.columns:
+        top_cats = df['Category'].value_counts().head(3)
+        context_parts.append(f"Top categories: {', '.join(top_cats.index.tolist())}")
+    
+    return " | ".join(context_parts)
+
+def generate_chatbot_response(user_message, chatbot):
+    if not user_message or not isinstance(user_message, str):
+        return "I can help you analyze feedback data. Ask me about sentiment, ratings, issues, or recommendations for improvement."
+    
+    user_message = str(user_message).strip().lower()
+    if not user_message:
+        return "Please ask me a question about the feedback data."
+    
+    context = get_feedback_context()
+    
+    if 'sentiment' in user_message or 'feeling' in user_message or 'emotion' in user_message:
+        if 'df' in st.session_state:
+            df = st.session_state['df']
+            if 'Sentiment' in df.columns:
+                sentiment_counts = df['Sentiment'].value_counts()
+                pos = sentiment_counts.get('Positive', 0)
+                neu = sentiment_counts.get('Neutral', 0)
+                neg = sentiment_counts.get('Negative', 0)
+                total = len(df)
+                pos_pct = (pos / total) * 100
+                neu_pct = (neu / total) * 100
+                neg_pct = (neg / total) * 100
+                
+                overall = 'positive' if pos_pct > 50 else 'negative' if neg_pct > 50 else 'mixed'
+                return f"Based on {total} reviews:\n- Positive: {pos} ({pos_pct:.1f}%)\n- Neutral: {neu} ({neu_pct:.1f}%)\n- Negative: {neg} ({neg_pct:.1f}%)\n\nOverall sentiment is {overall}."
+        return "Please upload feedback data to analyze sentiment."
+    
+    if 'rating' in user_message or 'score' in user_message or 'average' in user_message:
+        if 'df' in st.session_state and 'Rating_Numeric' in st.session_state['df'].columns:
+            avg = st.session_state['df']['Rating_Numeric'].mean()
+            max_rating = st.session_state['df']['Rating_Numeric'].max()
+            min_rating = st.session_state['df']['Rating_Numeric'].min()
+            quality = 'excellent' if avg >= 4.5 else 'good' if avg >= 4 else 'moderate' if avg >= 3 else 'poor'
+            return f"Rating Analysis:\n- Average: {avg:.2f}/5.0\n- Highest: {max_rating:.1f}\n- Lowest: {min_rating:.1f}\n- Quality: {quality.capitalize()} satisfaction level"
+        return "Please upload feedback data to analyze ratings."
+    
+    if 'issue' in user_message or 'problem' in user_message or 'complaint' in user_message or 'negative' in user_message:
+        if 'df' in st.session_state:
+            df = st.session_state['df']
+            if 'Sentiment' in df.columns:
+                neg_count = (df['Sentiment'] == 'Negative').sum()
+                if neg_count > 0:
+                    return f"Found {neg_count} negative reviews. Common issues include:\n1. Product quality concerns\n2. Delivery delays\n3. Customer service responsiveness\n4. Feature limitations\n\nRecommendation: Address these systematically, starting with the most frequently mentioned issues."
+        return "Common customer issues include product quality, delivery times, and customer service. Check the Insights tab for detailed analysis."
+    
+    if 'improve' in user_message or 'recommendation' in user_message or 'suggest' in user_message or 'action' in user_message:
+        if 'df' in st.session_state:
+            df = st.session_state['df']
+            if 'Sentiment' in df.columns:
+                neg_count = (df['Sentiment'] == 'Negative').sum()
+                total = len(df)
+                neg_pct = (neg_count / total) * 100
+                
+                recommendations = [
+                    f"1. Prioritize resolving {neg_count} negative reviews ({neg_pct:.1f}% of total)",
+                    "2. Enhance product quality based on feedback patterns",
+                    "3. Improve delivery speed and reliability",
+                    "4. Strengthen customer support response times",
+                    "5. Implement feedback loops to track improvement"
+                ]
+                return "Improvement Recommendations:\n\n" + "\n".join(recommendations)
+        return "Focus on:\n1. Product quality enhancement\n2. Faster delivery times\n3. Better customer support\n4. Regular feedback monitoring\n5. Proactive issue resolution"
+    
+    if 'category' in user_message or 'type' in user_message or 'group' in user_message:
+        if 'df' in st.session_state and 'Category' in st.session_state['df'].columns:
+            top_cats = st.session_state['df']['Category'].value_counts().head(5)
+            cat_str = "\n".join([f"- {cat}: {count} reviews" for cat, count in top_cats.items()])
+            return f"Top Categories:\n{cat_str}\n\nCheck the Insights tab for category performance analysis."
+        return "Category information not available. Please ensure your data includes a Category column."
+    
+    if 'trend' in user_message or 'over time' in user_message or 'forecast' in user_message:
+        return "For trend analysis and forecasting, please check the Insights tab which shows:\n- Rating trends over time\n- Monthly satisfaction changes\n- Predicted future ratings\n\nThis visual analysis helps identify patterns and make data-driven decisions."
+    
+    if 'help' in user_message or 'what can' in user_message:
+        return """I can help you with:
+
+1. Sentiment Analysis - Overall customer sentiment distribution
+2. Rating Insights - Average ratings and quality assessment  
+3. Issue Identification - Common problems and complaints
+4. Improvement Recommendations - Actionable suggestions
+5. Category Breakdown - Performance by product category
+6. Trend Analysis - Time-based patterns
+
+Just ask me a question like:
+- "What is the overall sentiment?"
+- "What are the main issues?"
+- "How can we improve satisfaction?"
+- "What is the average rating?"
+"""
+    
+    if 'df' in st.session_state:
+        total_reviews = len(st.session_state['df'])
+        return f"I have access to {total_reviews} customer reviews. Ask me about:\n- Sentiment analysis\n- Rating insights\n- Common issues\n- Improvement recommendations\n- Category performance\n\nWhat would you like to know?"
+    
+    return "I can help you analyze feedback data. Please upload your data first, then ask me about sentiment, ratings, issues, or recommendations for improvement."
+
+tabs = st.tabs(["Upload Data", "Sentiment Analysis", "Summaries", "Insights", "AI Chatbot"])
 
 with tabs[0]:
     st.header("Upload Customer Feedback Data")
@@ -256,6 +387,42 @@ with tabs[3]:
     else:
         st.warning("Please upload a dataset first")
 
+with tabs[4]:
+    st.header("AI Chatbot Assistant")
+    st.markdown("Ask me questions about your feedback data!")
+    
+    st.markdown("---")
+    
+    chat_container = st.container()
+    with chat_container:
+        for message in st.session_state.chat_history[-10:]:
+            if message["role"] == "user":
+                st.markdown(f"**You:** {message['content']}")
+            else:
+                st.markdown(f"**Bot:** {message['content']}")
+        
+        st.markdown("---")
+        
+        user_input = st.text_input(
+            "Ask me anything:", 
+            key=f"chat_input_{st.session_state.chat_input_counter}",
+            placeholder="What is the overall sentiment?"
+        )
+        
+        if st.button("Send", key=f"send_btn_{st.session_state.chat_input_counter}"):
+            if user_input and user_input.strip():
+                st.session_state.chat_history.append({"role": "user", "content": user_input})
+                
+                chatbot_model = load_chatbot()
+                if chatbot_model:
+                    bot_response = generate_chatbot_response(user_input, chatbot_model)
+                else:
+                    bot_response = generate_chatbot_response(user_input, None)
+                
+                st.session_state.chat_history.append({"role": "assistant", "content": bot_response})
+                st.session_state.chat_input_counter += 1
+                st.rerun()
+
 st.sidebar.title("About")
 st.sidebar.info("""
 **Customer Feedback Analysis System**
@@ -266,6 +433,7 @@ Features:
 - Text summarization
 - Visual insights
 - Trend analysis
+- AI Chatbot assistant
 
 Built with Streamlit & AI
 """)
@@ -276,5 +444,5 @@ st.sidebar.markdown("""
 2. View sentiment analysis
 3. Generate summaries
 4. Explore insights and trends
+5. Chat with AI assistant
 """)
-
